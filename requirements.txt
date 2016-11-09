@@ -1,0 +1,6 @@
+pyyaml
+boto3
+docopt
+paramiko
+boto
+requests
