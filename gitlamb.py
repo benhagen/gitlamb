@@ -154,7 +154,7 @@ class Lambda():
 				yaml_role = json.loads(yaml_role)
 				if "PolicyDocument" in yaml_role:
 					policy_document = yaml_role['PolicyDocument']
-				if "TrrustPolicy" in yaml_role:
+				if "TrustPolicy" in yaml_role:
 					trust_policy = yaml_role['TrustPolicy']
 
 			if not policy_document:
