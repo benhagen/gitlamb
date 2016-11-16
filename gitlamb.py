@@ -370,7 +370,7 @@ if __name__ == '__main__':
 			if not arguments['<master_account_id>']:
 				arguments['<master_account_id>'] = account_id
 			client_assume_role_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': u'sts:AssumeRole', u'Principal': {u'AWS': u'arn:aws:iam::{}:role/gitlamb_master'.format(arguments['<master_account_id>'])}, u'Effect': u'Allow', u'Sid': u''}]}
-			client_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': [u'lambda:*'], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475424995000'}, {u'Action': [u'iam:GetRole', u'iam:GetRolePolicy', u'iam:PutRolePolicy', u'iam:CreateRole', u'iam:ListRoles', u"iam:UpdateAssumeRolePolicy", u"iam:PassRole"], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475425951000'}]}
+			client_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': [u'lambda:*'], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475424995000'}, {u'Action': [u'iam:GetRole', u'iam:GetRolePolicy', u'iam:PutRolePolicy', u'iam:CreateRole', u'iam:ListRoles', u"iam:UpdateAssumeRolePolicy", u"iam:PassRole", u"sts:AssumeRole"], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475425951000'}]}
 			if not client_role:
 				print "[+] Creating gitlamb IAM role"
 				iam_client.create_role(RoleName='gitlamb', AssumeRolePolicyDocument=json.dumps(client_assume_role_policy_document))
