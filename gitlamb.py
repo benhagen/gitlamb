@@ -205,15 +205,21 @@ class Lambda():
 				if local_yaml.get('VpcConfig'):
 					# Todo: Need to support getting VPCs/SGs based on name
 					vpc_config = {"SubnetIds": [], "SecurityGroupIds": []}
-					# for vpc in json_data['Vpcs']:
-					# 	if get_tag(vpc, "Name") == local_yaml['VpcConfig']['VpcName']:
-					# 		target_vpc = vpc
-					# for subnet in json_data['Subnets']:
-					# 	if subnet['VpcId'] == target_vpc['VpcId'] and local_yaml['VpcConfig']['SubnetNameMatch'] in get_tag(subnet, "Name"):
-					# 		vpc_config['SubnetIds'].append(subnet['SubnetId'])
-					# for securitygroup in json_data['SecurityGroups']:
-					# 	if securitygroup['VpcId'] == target_vpc['VpcId'] and securitygroup['GroupName'] in local_yaml['VpcConfig']['SecurityGroups']:
-					# 		vpc_config['SecurityGroupIds'].append(securitygroup['GroupId'])
+					ec2_resource = assumed_session.resource("ec2")
+					for vpc in ec2_resource.vpcs.all():
+						for tag in vpc.tags:
+							if tag['Key'] == "Name" and tag['Value'] == local_yaml['VpcConfig']['VpcName']:
+								target_vpc = vpc
+					for subnet in target_vpc.subnets.all():
+						for tag in subnet.tags:
+							if tag['Key'] == "Name" and local_yaml['VpcConfig']['SubnetNameMatch'] in tag['Value']:
+								vpc_config['SubnetIds'].append(subnet.id)
+					for securitygroup in ec2_resource.security_groups.filter(
+							Filters=[
+								{"Name": "vpc-id", "Values": [target_vpc.id]},
+								{"Name": "group-name", "Values": local_yaml['VpcConfig']['SecurityGroups']}
+							]).all():
+						vpc_config['SecurityGroupIds'].append(securitygroup.id)
 				else:
 					vpc_config = {'SubnetIds': [], 'SecurityGroupIds': []}
 				lambda_client = assumed_session.client("lambda", region_name=region)
@@ -370,7 +376,7 @@ if __name__ == '__main__':
 			if not arguments['<master_account_id>']:
 				arguments['<master_account_id>'] = account_id
 			client_assume_role_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': u'sts:AssumeRole', u'Principal': {u'AWS': u'arn:aws:iam::{}:role/gitlamb_master'.format(arguments['<master_account_id>'])}, u'Effect': u'Allow', u'Sid': u''}]}
-			client_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': [u'lambda:*'], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475424995000'}, {u'Action': [u'iam:GetRole', u'iam:GetRolePolicy', u'iam:PutRolePolicy', u'iam:CreateRole', u'iam:ListRoles', u"iam:UpdateAssumeRolePolicy", u"iam:PassRole", u"sts:AssumeRole"], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475425951000'}]}
+			client_policy_document = {u'Version': u'2012-10-17', u'Statement': [{u'Action': [u'lambda:*'], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475424995000'}, {u'Action': [u'iam:GetRole', u'iam:GetRolePolicy', u'iam:PutRolePolicy', u'iam:CreateRole', u'iam:ListRoles', u"iam:UpdateAssumeRolePolicy", u"iam:PassRole", u"sts:AssumeRole", u"ec2:DescribeVpcs", u"ec2:DescribeSubnets", u"ec2:DescribeSecurityGroups"], u'Resource': [u'*'], u'Effect': u'Allow', u'Sid': u'Stmt1475425951000'}]}
 			if not client_role:
 				print "[+] Creating gitlamb IAM role"
 				iam_client.create_role(RoleName='gitlamb', AssumeRolePolicyDocument=json.dumps(client_assume_role_policy_document))
