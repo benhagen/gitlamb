@@ -300,8 +300,8 @@ class Lambda():
 				else:
 					logging.info("    [+] Adding {} as {}".format(path, dest_path))
 					zf.write(path, dest_path)
-		with open("./output.zip", "wb") as output_zip:
-			output_zip.write(zio.getvalue())
+		# with open("./output.zip", "wb") as output_zip:
+		# 	output_zip.write(zio.getvalue())
 		value = zio.getvalue()
 		logging.info("    [i] Done ~ {:,} bytes".format(len(value)))
 		zio.close()
