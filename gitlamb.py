@@ -5,7 +5,7 @@
 Usage:
   gitlamb.py install master [--assumable=<arn>...]
   gitlamb.py install client [<master_account_id>]
-  gitlamb.py deploy <app.yaml>
+  gitlamb.py deploy <app.yaml> [--s3=<bucket>]
   gitlamb.py simulate <app.yaml> <payload> [--account=<account_id>] [--region=<region>]
   gitlamb.py execute <app.yaml> <payload>
 
@@ -111,8 +111,9 @@ class Lambda():
 		imported = getattr(__import__(package, fromlist=[name]), name)
 		logging.warn("[ ] Executing:\n----------\n")
 		start_time = time.time()
-		imported(payload)
+		output = imported(payload)
 		end_time = time.time()
+		logging.warn("\n[ ] Function returned:\n----------\n{}".format(json.dumps(output, indent=4, sort_keys=True)))
 		logging.warn("\n----------\n[ ] Execution took {0:.10f} seconds".format(float(end_time - start_time)))
 
 	def execute(self, payload, account=None, region=None):
@@ -132,6 +133,7 @@ class Lambda():
 				response = lambda_client.invoke(FunctionName=self.app_yaml['FunctionName'], InvocationType="RequestResponse", LogType="Tail", Payload=payload)
 				end_time = time.time()
 				logging.info("{}\n\n{}".format(response['ResponseMetadata'], base64.b64decode(response['LogResult'])))
+				logging.warn("\n[ ] Function returned:\n----------\n{}".format(json.dumps(json.loads(response['Payload'].read()), indent=4, sort_keys=True)))
 				logging.warn("\n----------\n[ ] Execution took {0:.10f} seconds".format(float(end_time - start_time)))
 
 	def upsert(self):
@@ -298,8 +300,8 @@ class Lambda():
 				else:
 					logging.info("    [+] Adding {} as {}".format(path, dest_path))
 					zf.write(path, dest_path)
-		# with open("./output.zip", "wb") as output_zip:
-		# 	output_zip.write(zio.getvalue())
+		with open("./output.zip", "wb") as output_zip:
+			output_zip.write(zio.getvalue())
 		value = zio.getvalue()
 		logging.info("    [i] Done ~ {:,} bytes".format(len(value)))
 		zio.close()
@@ -410,10 +412,22 @@ if __name__ == '__main__':
 		with open(arguments['<app.yaml>'], "r") as f:
 			app_yaml = yaml.safe_load(f)
 		lamb = Lambda(app_yaml, master_session)
-		lamb.simulate(payload=json.loads(arguments['<payload>']))
+		try:
+			payload = json.loads(arguments['<payload>'])
+		except:
+			print "[!] Loading payload from JSON file '{}'".format(arguments['<payload>'])
+			with open(arguments['<payload>']) as payload_file:
+				payload = json.load(payload_file)
+		lamb.simulate(payload=payload)
 
 	if arguments['execute']:
 		with open(arguments['<app.yaml>'], "r") as f:
 			app_yaml = yaml.safe_load(f)
 		lamb = Lambda(app_yaml, master_session)
-		lamb.execute(payload=arguments['<payload>'])
+		try:
+			payload = json.loads(arguments['<payload>'])
+		except:
+			print "[!] Loading payload from JSON file '{}'".format(arguments['<payload>'])
+			with open(arguments['<payload>']) as payload_file:
+				payload = json.load(payload_file)
+		lamb.execute(payload=json.dumps(payload))
