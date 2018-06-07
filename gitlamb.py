@@ -180,8 +180,8 @@ class Lambda():
 				role = iam_resource.create_role(RoleName=self.app_yaml['Role'], AssumeRolePolicyDocument=json.dumps(trust_policy))
 				role_policy = role.Policy(self.app_yaml['Role'])
 				role_policy.put(PolicyDocument=json.dumps(policy_document))
-				logging.info("[ ] Pausing for 5 seconds to allow for IAM creation")
-				time.sleep(5)
+				logging.info("[ ] Pausing for 10 seconds to allow for IAM creation")
+				time.sleep(10)
 			else:
 				if json.dumps(trust_policy, sort_keys=True) != json.dumps(role['Role']['AssumeRolePolicyDocument'], sort_keys=True):
 					print "[+] Updating IAM Role role trust policy ..."
@@ -272,11 +272,24 @@ class Lambda():
 					else:
 						logging.info("[ ] Configuration is up to date; no action required")
 					if base64.b64encode(hashlib.sha256(zip_bytes).digest()) != config['CodeSha256']:
-						logging.warn("[~] Updating Lambda code")
-						lambda_client.update_function_code(**{
-							"FunctionName": local_yaml['FunctionName'],
-							"ZipFile": zip_bytes
-						})
+						if self.app_yaml.get("S3Bucket"):
+							s3_key = "temp_{}.zip".format(local_yaml['FunctionName'])
+							s3_client = self.session.client("s3", region_name=self.app_yaml.get("S3BucketRegion", "us-east-1"))
+							logging.warn("[ ] Uploading zip file to S3 bucket '{}'...".format(self.app_yaml.get("S3Bucket")))
+							s3_client.put_object(Body=zip_bytes, Bucket=self.app_yaml.get("S3Bucket"), Key=s3_key)
+							logging.warn("[~] Updating Lambda code")
+							lambda_client.update_function_code(**{
+								"FunctionName": local_yaml['FunctionName'],
+								"S3Bucket": self.app_yaml.get("S3Bucket"),
+								"S3Key": s3_key
+							})
+							s3_client.delete_object(Bucket=self.app_yaml.get("S3Bucket"), Key=s3_key)
+						else:
+							logging.warn("[~] Updating Lambda code")
+							lambda_client.update_function_code(**{
+								"FunctionName": local_yaml['FunctionName'],
+								"ZipFile": zip_bytes
+							})
 					else:
 						logging.info("[ ] Code is up to date; no action required")
 
@@ -310,10 +323,7 @@ class Lambda():
 	def logs_purge(self):
 		logging.warn("Deleting log streams for '{}'".format(self.log_group_name))
 		for account in self.app_yaml['Accounts']:
-			# STS to the relevant RolliePollie role in target account for log management
-			#sts_role = sts_client.assume_role(RoleArn="arn:aws:iam::{}:role/RolliePollie".format(account), RoleSessionName="GitLamb")
 			for region in self.app_yaml['Regions']:
-				#assumed_session = boto3.Session(region_name=region, aws_access_key_id=sts_role['Credentials']['AccessKeyId'], aws_secret_access_key=sts_role['Credentials']['SecretAccessKey'], aws_session_token=sts_role['Credentials']['SessionToken'])
 				logs_client = Session.client("logs", region_name=region)
 				# TODO: Would be nice to pull current retention setting and recreate
 				logging.warn("\t[-] Deleting log group in {}".format(region))
